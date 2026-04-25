@@ -39,6 +39,12 @@ DATABASE_URL=postgresql+psycopg://postgres:YOUR_SUPABASE_DB_PASSWORD@db.ghdriiam
 2. Install dependencies with `pip install -e .`.
 3. Start the server with `python -m hey_i_mcp`.
 
+## Deploy en Prefect Horizon
+
+- Entry point: `server.py:mcp`
+- Si la UI te pide solo archivo, usa `server.py`
+- `pyproject.toml` ya basta como archivo de dependencias; no necesitas `requirements.txt` para este repo
+
 ## Repo Scope
 
 This repository currently owns only the MCP service. The Lambda app that uses LangChain should live separately and call this MCP layer through API Gateway.
