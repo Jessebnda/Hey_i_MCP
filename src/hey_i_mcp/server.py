@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from hey_i_mcp.database import DatabaseClient
 
