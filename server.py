@@ -5,6 +5,7 @@ Entry point de despliegue para el servidor MCP.
 Prefect Horizon puede apuntar a este archivo con `server.py:mcp`.
 """
 
+import os
 from pathlib import Path
 import sys
 
@@ -19,4 +20,8 @@ __all__ = ["mcp"]
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(
+        transport="http",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8000")),
+    )
