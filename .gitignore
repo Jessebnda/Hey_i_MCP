@@ -1,0 +1,51 @@
+# Environment files
+.env
+.env.*
+!.env.example
+*.env
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.der
+*.jks
+*.keystore
+*.secret
+*.secrets
+*.token
+*.credentials
+credentials/
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+.eggs/
+*.egg-info/
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+*.db
+*.sqlite
+*.sqlite3
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

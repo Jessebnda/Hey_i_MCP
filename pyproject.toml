@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hey-i-mcp"
+version = "0.1.0"
+description = "FastMCP scaffold with a raw SQL query tool"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "python-dotenv>=1.0.1",
+    "psycopg[binary]>=3.1.19",
+    "sqlalchemy>=2.0.0",
+]
+
+[project.scripts]
+hey-i-mcp = "hey_i_mcp.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
