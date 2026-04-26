@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
-import inspect
 import time
 from typing import Any, Annotated, Literal
 
@@ -10,8 +9,6 @@ import httpx
 from pydantic import Field
 
 from fastmcp import FastMCP
-from fastmcp.tools.function_tool import FunctionTool
-
 from hey_i_mcp.analytics_dashboards import (
     build_behavior_dashboard,
     build_benchmark_dashboard,
@@ -27,45 +24,6 @@ mcp = FastMCP("Hey i MCP")
 database_client = DatabaseClient()
 supabase_rest_client = SupabaseRestClient()
 
-
-def _strip_unknown_tool_arguments(
-    fn: Any,
-    arguments: dict[str, Any],
-) -> dict[str, Any]:
-    """Drop legacy extra keys before FastMCP validates tool calls.
-
-    Some external workflows still send a superset payload to multiple tools.
-    FastMCP rejects unexpected keyword arguments, so we keep only the fields
-    that the underlying tool function actually declares.
-    """
-    signature = inspect.signature(fn)
-    allowed_names = {
-        name
-        for name, parameter in signature.parameters.items()
-        if parameter.kind
-        not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
-    }
-
-    if not arguments or all(name in allowed_names for name in arguments):
-        return arguments
-
-    return {name: value for name, value in arguments.items() if name in allowed_names}
-
-
-_original_function_tool_run = FunctionTool.run
-
-
-async def _run_tool_with_legacy_argument_filter(
-    self: FunctionTool,
-    arguments: dict[str, Any],
-) -> Any:
-    return await _original_function_tool_run(
-        self,
-        _strip_unknown_tool_arguments(self.fn, arguments),
-    )
-
-
-FunctionTool.run = _run_tool_with_legacy_argument_filter  # type: ignore[assignment]
 
 
 def _parse_datetime(value: Any) -> datetime | None:
