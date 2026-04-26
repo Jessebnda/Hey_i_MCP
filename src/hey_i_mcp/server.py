@@ -313,19 +313,17 @@ def get_user_chat_messages(
 def get_user_segment(
     user_id: Annotated[
         str,
-        Field(alias="User Id", description="UUID of the user whose segment should be retrieved."),
+        Field(description="UUID of the user whose segment should be retrieved."),
     ],
     transaction_limit: Annotated[
         int | str | None,
         Field(
-            alias="Transaction Limit",
             description="Compatibility-only. Ignored by get_user_segment.",
         ),
     ] = None,
     message_limit: Annotated[
         int | str | None,
         Field(
-            alias="Message Limit",
             description="Compatibility-only. Ignored by get_user_segment.",
         ),
     ] = None,
@@ -412,19 +410,17 @@ def get_user_transactions(
 def get_user_context_snapshot(
     user_id: Annotated[
         str,
-        Field(alias="User Id", description="UUID of the user to summarize."),
+        Field(description="UUID of the user to summarize."),
     ],
     transaction_limit: Annotated[
         int | str,
         Field(
-            alias="Transaction Limit",
             description="Maximum number of recent transactions to include in the snapshot.",
         ),
     ] = 50,
     message_limit: Annotated[
         int | str,
         Field(
-            alias="Message Limit",
             description="Maximum number of recent chat messages to include in the snapshot.",
         ),
     ] = 50,
