@@ -8,34 +8,30 @@ Architecture:
 - `api gateway` -> MCP service
 - `mcp` -> tools for `db`
 
-Base FastMCP scaffold for three tools:
+Base FastMCP scaffold for user-scoped tools:
 
-- `run_query(query)` for raw SQL execution against a configured database URL.
-- `supabase_select_rows(table_name, schema, status, limit)` for quick REST checks using Supabase keys.
+- `supabase_select_rows(table_name, schema, filters, limit)` for quick REST checks using Supabase keys.
+- `get_user_profile(user_id)` for the latest row in `user_profiles`.
+- `get_user_segment(user_id)` for the latest row in `user_segments`.
+- `get_user_transactions(user_id, ...)` for user-scoped transaction history plus aggregates.
+- `get_user_context_snapshot(user_id, ...)` for a compact cross-table user summary.
+- `get_user_chat_messages(user_id, ...)` for user chat history.
+- `save_user_insight(user_id, ...)` to persist a generated insight into `user_insights`.
 - `call_model_endpoint(model, function, method, payload)` for the Datathon206 FastAPI Space router.
 
 ## Environment variables
 
-- `SUPABASE_DATABASE_URL`
-- `DATABASE_URL` as fallback
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` if you want a backend-only key with full access
 
-For this repo, the query tool needs a Postgres connection string. If you are using Supabase, that connection string should come from the Supabase database settings. The `NEXT_PUBLIC_SUPABASE_*` values currently in your `.env` belong to a different app flow and are not enough by themselves for raw SQL.
+The MCP layer now uses Supabase REST only. You do not need a Postgres connection string for the exposed tools.
 
 Example local `.env`:
 
 ```env
-SUPABASE_DATABASE_URL=postgresql+psycopg://postgres:YOUR_SUPABASE_DB_PASSWORD@db.ghdriiamxjczjfzfrmlw.supabase.co:5432/postgres?sslmode=require
 NEXT_PUBLIC_SUPABASE_URL=https://ghdriiamxjczjfzfrmlw.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-If you want to keep a generic fallback name instead, you can also use:
-
-```env
-DATABASE_URL=postgresql+psycopg://postgres:YOUR_SUPABASE_DB_PASSWORD@db.ghdriiamxjczjfzfrmlw.supabase.co:5432/postgres?sslmode=require
 ```
 
 ## Local setup
@@ -54,13 +50,19 @@ DATABASE_URL=postgresql+psycopg://postgres:YOUR_SUPABASE_DB_PASSWORD@db.ghdriiam
 
 This repository currently owns only the MCP service. The Lambda app that uses LangChain should live separately and call this MCP layer through API Gateway.
 
-## Database query tool
-
-`run_query(query)` sends the SQL string directly to the configured `DATABASE_URL` and returns a JSON-friendly result. This version is intentionally raw and leaves out safety controls for now, as requested.
-
 ## Supabase key-based test tool
 
-`supabase_select_rows(table_name, schema, status, limit)` calls the Supabase REST API using the configured key instead of the PostgreSQL driver. By default it tries `public.users` rows with `status = active`, which is useful for a quick sanity check. If you set `SUPABASE_SERVICE_ROLE_KEY`, it uses that first; otherwise it falls back to `SUPABASE_ANON_KEY` and the `NEXT_PUBLIC_SUPABASE_ANON_KEY` value from your existing `.env`.
+`supabase_select_rows(table_name, schema, filters, limit)` calls the Supabase REST API using the configured key instead of the PostgreSQL driver. It is a generic read helper for quick checks against `user_profiles`, `chat_messages`, or any other table you explicitly target. If you set `SUPABASE_SERVICE_ROLE_KEY`, it uses that first; otherwise it falls back to `SUPABASE_ANON_KEY` and the `NEXT_PUBLIC_SUPABASE_ANON_KEY` value from your existing `.env`.
+
+The user-scoped tools focus on tables that already exist in this project:
+
+- `user_profiles` for demographic and behavioral profile data.
+- `user_segments` for the latest segment assignment and z-scores.
+- `user_transactions` for spending and activity summaries.
+- `chat_messages` for recent conversation history.
+- `user_insights` for saved model-generated insights.
+
+Most of these tools are read-only and filter by `user_id`; `save_user_insight` is the write path for persisting generated insights, which is still safer than exposing raw SQL access.
 
 ## Datathon206 segmentacion router
 
