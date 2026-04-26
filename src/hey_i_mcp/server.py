@@ -419,6 +419,26 @@ def get_user_transactions(
         str | None,
         Field(description="Compatibility-only. Ignored by get_user_transactions."),
     ] = None,
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_transactions."),
+    ] = None,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_transactions."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_user_transactions."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_transactions."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_transactions."),
+    ] = None,
     limit: Annotated[int, Field(description="Maximum number of transactions to return, newest first.")] = 25,
 ) -> dict[str, Any]:
     """
@@ -427,7 +447,7 @@ def get_user_transactions(
     Returns raw rows plus a derived summary with amount totals, averages, min/max,
     international ratio, counts by status/type/category/merchant, and recent samples.
     """
-    _ = role
+    _ = role, top_merchants_limit, months_back, target_category, reduction_pct, weeks_back
     filters: dict[str, str | int | bool] = {"user_id": user_id}
     if estatus is not None:
         filters["estatus"] = estatus
