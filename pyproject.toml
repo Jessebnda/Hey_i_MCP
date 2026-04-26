@@ -9,7 +9,7 @@ description = "FastMCP scaffold with a raw SQL query tool"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fastmcp>=2.12.3",
+    "fastmcp>=2.3.0",
     "mcp>=1.0.0",
     "python-dotenv>=1.0.1",
     "psycopg[binary]>=3.1.19",
