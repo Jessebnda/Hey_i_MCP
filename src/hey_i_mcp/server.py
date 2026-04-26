@@ -1116,11 +1116,11 @@ def classify_user_segment(
     }
 
     model_result = _call_model_endpoint_impl(
-        model="segmentacion",
-        function="insight/new",
-        method="POST",
-        payload=features,
-    )
+    model="segmentacion",
+    function="insight/new",
+    method="POST",
+    payload={"features": features},  # 👈 wrap aquí
+)
     status_code = model_result.get("status_code")
     response_payload = model_result.get("response")
     if status_code != 200 or not isinstance(response_payload, dict):
@@ -1295,6 +1295,9 @@ def _call_model_endpoint_impl(
     if method not in ("GET", "POST"):
         return {"error": "Invalid method", "status_code": 400}
 
+    if function == "insight/new":
+    url = f"{base_url}/{function}"
+else:
     url = f"{base_url}/{model}/{function}"
 
     start = time.perf_counter()
