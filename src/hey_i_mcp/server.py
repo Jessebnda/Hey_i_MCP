@@ -899,6 +899,50 @@ def classify_user_segment(
             )
         ),
     ] = False,
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    role: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    estatus: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    categoria_mcc: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    tipo_operacion: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
+    es_internacional: Annotated[
+        bool | None,
+        Field(description="Compatibility-only. Ignored by classify_user_segment."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Clasifica a un usuario en un segmento financiero y guarda/upserta el resultado en user_segments.
@@ -907,6 +951,19 @@ def classify_user_segment(
     chat_messages y un proxy de utilización desde user_segments si existe histórico previo.
     Por defecto solo inserta la primera vez; para recalcular requiere force_reclassify=True.
     """
+    _ = (
+        top_merchants_limit,
+        months_back,
+        target_category,
+        reduction_pct,
+        weeks_back,
+        role,
+        limit,
+        estatus,
+        categoria_mcc,
+        tipo_operacion,
+        es_internacional,
+    )
     profile_result = supabase_rest_client.select_rows(
         table_name="user_profiles",
         schema="public",
@@ -1058,7 +1115,7 @@ def classify_user_segment(
         "usa_canal_voz": round(usa_canal_voz, 6),
     }
 
-    model_result = call_model_endpoint(
+    model_result = _call_model_endpoint_impl(
         model="segmentacion",
         function="insight/new",
         method="POST",
@@ -1218,6 +1275,16 @@ def call_model_endpoint(
     - segmentacion/segments -> GET
     - segmentacion/insight/new -> POST with the new-user feature payload
     """
+    return _call_model_endpoint_impl(model=model, function=function, method=method, payload=payload)
+
+
+def _call_model_endpoint_impl(
+    *,
+    model: Literal["segmentacion"],
+    function: Literal["health", "segments", "insight/new"],
+    method: Literal["GET", "POST"] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     base_url = "https://orbit05-datathon206.hf.space"
 
     # Infer HTTP method when omitted
