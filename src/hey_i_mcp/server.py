@@ -44,11 +44,11 @@ def call_model_endpoint(
         Field(description="Model prefix. Only segmentacion is supported by this Space."),
     ],
     function: Annotated[
-        Literal["health", "segments", "insight/new", "insight/existing"],
+        Literal["health", "segments", "insight/new"],
         Field(
             description=(
                 "Endpoint suffix without the leading slash. Use health or segments for GET, "
-                "and insight/new or insight/existing for POST."
+                "and insight/new for POST."
             )
         ),
     ],
@@ -62,7 +62,6 @@ def call_model_endpoint(
             description=(
                 "JSON body for POST endpoints. For insight/new send the segmentacion feature "
                 "payload, including numeric fields, 0/1 flags, and optional conversation_text. "
-                "For insight/existing send {user_id, language}."
             )
         ),
     ] = None,
@@ -71,14 +70,12 @@ def call_model_endpoint(
     Call the Datathon206 segmentacion Space.
 
     This tool routes requests to https://orbit05-datathon206.hf.space/{model}/{function}.
-    Use it to read health metadata, list clusters, score a new user, or retrieve an
-    existing user's segment insight.
+    Use it to read health metadata, list clusters, or score a new user.
 
     Supported routes:
     - segmentacion/health -> GET
     - segmentacion/segments -> GET
     - segmentacion/insight/new -> POST with the new-user feature payload
-    - segmentacion/insight/existing -> POST with user_id and optional language
     """
     base_url = "https://orbit05-datathon206.hf.space"
 

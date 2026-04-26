@@ -75,7 +75,6 @@ Supported functions:
 - `health` with `GET`
 - `segments` with `GET`
 - `insight/new` with `POST`
-- `insight/existing` with `POST`
 
 `insight/new` accepts this JSON payload shape:
 
@@ -103,15 +102,6 @@ Supported functions:
 	"has_credito": 1,
 	"has_inversion": 1,
 	"conversation_text": "opcional"
-}
-```
-
-`insight/existing` uses a JSON body like this:
-
-```json
-{
-	"user_id": "abc123",
-	"language": "es"
 }
 ```
 
