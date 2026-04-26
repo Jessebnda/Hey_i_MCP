@@ -258,6 +258,7 @@ def supabase_select_rows(
         ),
     ] = None,
     limit: Annotated[int, Field(description="Maximum number of rows to return.")] = 5,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     return supabase_rest_client.select_rows(
         table_name=table_name,
@@ -273,6 +274,7 @@ def get_user_profile(
         str,
         Field(description="UUID of the user whose profile should be retrieved."),
     ],
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Fetch the latest profile row for a single user from user_profiles, ordered by updated_at DESC.
@@ -297,6 +299,7 @@ def get_user_chat_messages(
         Field(description="Optional exact role filter. Use 'user' or 'assistant'; omit for all messages."),
     ] = None,
     limit: Annotated[int, Field(description="Maximum number of messages to return, newest first.")] = 20,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Fetch the most recent chat messages for a given user from chat_messages, ordered by created_at DESC.
@@ -374,6 +377,7 @@ def get_user_transactions(
         Field(description="Optional exact boolean filter for international transactions."),
     ] = None,
     limit: Annotated[int, Field(description="Maximum number of transactions to return, newest first.")] = 25,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Fetch the latest transactions for a user from user_transactions, ordered by fecha_hora DESC.
@@ -530,7 +534,7 @@ def get_spending_dashboard(
         Field(description="UUID of the user whose spending dashboard should be built."),
     ],
     top_merchants_limit: Annotated[
-        int,
+        int | str | None,
         Field(description="How many merchants to include in the top merchants chart."),
     ] = 5,
     months_back: Annotated[
@@ -549,6 +553,7 @@ def get_spending_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
     ] = None,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the spending and categories dashboard.
@@ -556,10 +561,15 @@ def get_spending_dashboard(
     Returns chart-ready JSON with donut, comparison bar, daily line, heatmap, and top merchants charts.
     """
     _ = months_back, target_category, reduction_pct, weeks_back
+    try:
+        normalized_top_merchants_limit = int(top_merchants_limit) if top_merchants_limit is not None else 5
+    except (TypeError, ValueError):
+        normalized_top_merchants_limit = 5
+
     return build_spending_dashboard(
         supabase_rest_client,
         user_id=user_id,
-        top_merchants_limit=top_merchants_limit,
+        top_merchants_limit=normalized_top_merchants_limit,
     )
 
 
@@ -591,6 +601,7 @@ def get_credit_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_credit_dashboard."),
     ] = None,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the credit and financial health dashboard.
@@ -608,7 +619,7 @@ def get_savings_dashboard(
         Field(description="UUID of the user whose savings dashboard should be built."),
     ],
     months_back: Annotated[
-        int,
+        int | str | None,
         Field(description="Number of months to include in the monthly charts."),
     ] = 6,
     target_category: Annotated[
@@ -616,7 +627,7 @@ def get_savings_dashboard(
         Field(description="Optional category to use for the projection chart."),
     ] = None,
     reduction_pct: Annotated[
-        float,
+        float | str | None,
         Field(description="Percent reduction scenario used for the projection chart."),
     ] = 10.0,
     top_merchants_limit: Annotated[
@@ -627,6 +638,7 @@ def get_savings_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_savings_dashboard."),
     ] = None,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the savings and investment dashboard.
@@ -634,12 +646,22 @@ def get_savings_dashboard(
     Returns investment growth, income vs spend, and a category reduction scenario.
     """
     _ = top_merchants_limit, weeks_back
+    try:
+        normalized_months_back = int(months_back) if months_back is not None else 6
+    except (TypeError, ValueError):
+        normalized_months_back = 6
+
+    try:
+        normalized_reduction_pct = float(reduction_pct) if reduction_pct is not None else 10.0
+    except (TypeError, ValueError):
+        normalized_reduction_pct = 10.0
+
     return build_savings_dashboard(
         supabase_rest_client,
         user_id=user_id,
-        months_back=months_back,
+        months_back=normalized_months_back,
         target_category=target_category,
-        reduction_pct=reduction_pct,
+        reduction_pct=normalized_reduction_pct,
     )
 
 
@@ -650,7 +672,7 @@ def get_behavior_dashboard(
         Field(description="UUID of the user whose behavior dashboard should be built."),
     ],
     weeks_back: Annotated[
-        int,
+        int | str | None,
         Field(description="How many weeks to include in the weekly frequency chart."),
     ] = 12,
     top_merchants_limit: Annotated[
@@ -669,6 +691,7 @@ def get_behavior_dashboard(
         float | str | None,
         Field(description="Compatibility-only. Ignored by get_behavior_dashboard."),
     ] = None,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the behavior dashboard.
@@ -676,7 +699,16 @@ def get_behavior_dashboard(
     Returns weekday/weekend spending, weekly transaction frequency, and activity heatmaps.
     """
     _ = top_merchants_limit, months_back, target_category, reduction_pct
-    return build_behavior_dashboard(supabase_rest_client, user_id=user_id, weeks_back=weeks_back)
+    try:
+        normalized_weeks_back = int(weeks_back) if weeks_back is not None else 12
+    except (TypeError, ValueError):
+        normalized_weeks_back = 12
+
+    return build_behavior_dashboard(
+        supabase_rest_client,
+        user_id=user_id,
+        weeks_back=normalized_weeks_back,
+    )
 
 
 @mcp.tool()
@@ -705,6 +737,7 @@ def get_benchmark_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_benchmark_dashboard."),
     ] = None,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the segment benchmark dashboard.
@@ -750,6 +783,7 @@ def save_user_insight(
     tasa_fallos_pct: Annotated[
         float | None, Field(description="Failure rate as a decimal percentage, for example 0.02 for 2%.")
     ] = None,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Persist a generated insight into user_insights through the SQLAlchemy database layer.
@@ -801,6 +835,7 @@ def call_model_endpoint(
             )
         ),
     ] = None,
+    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Call the Datathon206 segmentacion Space.
