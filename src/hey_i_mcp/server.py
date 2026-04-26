@@ -10,7 +10,6 @@ import httpx
 from pydantic import Field
 
 from fastmcp import FastMCP
-from fastmcp.server.dependencies import without_injected_parameters
 from fastmcp.tools.function_tool import FunctionTool
 
 from hey_i_mcp.analytics_dashboards import (
@@ -39,8 +38,7 @@ def _strip_unknown_tool_arguments(
     FastMCP rejects unexpected keyword arguments, so we keep only the fields
     that the underlying tool function actually declares.
     """
-
-    signature = inspect.signature(without_injected_parameters(fn))
+    signature = inspect.signature(fn)
     allowed_names = {
         name
         for name, parameter in signature.parameters.items()
