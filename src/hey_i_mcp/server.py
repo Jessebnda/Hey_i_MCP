@@ -533,12 +533,29 @@ def get_spending_dashboard(
         int,
         Field(description="How many merchants to include in the top merchants chart."),
     ] = 5,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Build the spending and categories dashboard.
 
     Returns chart-ready JSON with donut, comparison bar, daily line, heatmap, and top merchants charts.
     """
+    _ = months_back, target_category, reduction_pct, weeks_back
     return build_spending_dashboard(
         supabase_rest_client,
         user_id=user_id,
@@ -552,12 +569,35 @@ def get_credit_dashboard(
         str,
         Field(description="UUID of the user whose credit health dashboard should be built."),
     ],
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(
+            description="Compatibility-only. Ignored by get_credit_dashboard.",
+        ),
+    ] = None,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_credit_dashboard."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_credit_dashboard."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by get_credit_dashboard."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_credit_dashboard."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Build the credit and financial health dashboard.
 
     Returns the utilization gauge, score history, and an explicit placeholder for debt vs limit.
     """
+    _ = top_merchants_limit, months_back, target_category, reduction_pct, weeks_back
     return build_credit_dashboard(supabase_rest_client, user_id=user_id)
 
 
@@ -579,12 +619,21 @@ def get_savings_dashboard(
         float,
         Field(description="Percent reduction scenario used for the projection chart."),
     ] = 10.0,
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_savings_dashboard."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_savings_dashboard."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Build the savings and investment dashboard.
 
     Returns investment growth, income vs spend, and a category reduction scenario.
     """
+    _ = top_merchants_limit, weeks_back
     return build_savings_dashboard(
         supabase_rest_client,
         user_id=user_id,
@@ -604,12 +653,29 @@ def get_behavior_dashboard(
         int,
         Field(description="How many weeks to include in the weekly frequency chart."),
     ] = 12,
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_behavior_dashboard."),
+    ] = None,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_behavior_dashboard."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_behavior_dashboard."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by get_behavior_dashboard."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Build the behavior dashboard.
 
     Returns weekday/weekend spending, weekly transaction frequency, and activity heatmaps.
     """
+    _ = top_merchants_limit, months_back, target_category, reduction_pct
     return build_behavior_dashboard(supabase_rest_client, user_id=user_id, weeks_back=weeks_back)
 
 
@@ -619,12 +685,33 @@ def get_benchmark_dashboard(
         str,
         Field(description="UUID of the user whose segment benchmark should be built."),
     ],
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_benchmark_dashboard."),
+    ] = None,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_benchmark_dashboard."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_benchmark_dashboard."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by get_benchmark_dashboard."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_benchmark_dashboard."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Build the segment benchmark dashboard.
 
     Returns horizontal category bars and a 6-dimension radar chart.
     """
+    _ = top_merchants_limit, months_back, target_category, reduction_pct, weeks_back
     return build_benchmark_dashboard(supabase_rest_client, user_id=user_id)
 
 
