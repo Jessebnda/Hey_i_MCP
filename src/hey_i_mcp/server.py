@@ -258,7 +258,6 @@ def supabase_select_rows(
         ),
     ] = None,
     limit: Annotated[int, Field(description="Maximum number of rows to return.")] = 5,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     return supabase_rest_client.select_rows(
         table_name=table_name,
@@ -274,7 +273,6 @@ def get_user_profile(
         str,
         Field(description="UUID of the user whose profile should be retrieved."),
     ],
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Fetch the latest profile row for a single user from user_profiles, ordered by updated_at DESC.
@@ -299,7 +297,6 @@ def get_user_chat_messages(
         Field(description="Optional exact role filter. Use 'user' or 'assistant'; omit for all messages."),
     ] = None,
     limit: Annotated[int, Field(description="Maximum number of messages to return, newest first.")] = 20,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Fetch the most recent chat messages for a given user from chat_messages, ordered by created_at DESC.
@@ -377,7 +374,6 @@ def get_user_transactions(
         Field(description="Optional exact boolean filter for international transactions."),
     ] = None,
     limit: Annotated[int, Field(description="Maximum number of transactions to return, newest first.")] = 25,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Fetch the latest transactions for a user from user_transactions, ordered by fecha_hora DESC.
@@ -553,7 +549,6 @@ def get_spending_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
     ] = None,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the spending and categories dashboard.
@@ -601,7 +596,6 @@ def get_credit_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_credit_dashboard."),
     ] = None,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the credit and financial health dashboard.
@@ -638,7 +632,6 @@ def get_savings_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_savings_dashboard."),
     ] = None,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the savings and investment dashboard.
@@ -691,7 +684,6 @@ def get_behavior_dashboard(
         float | str | None,
         Field(description="Compatibility-only. Ignored by get_behavior_dashboard."),
     ] = None,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the behavior dashboard.
@@ -737,7 +729,6 @@ def get_benchmark_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_benchmark_dashboard."),
     ] = None,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Build the segment benchmark dashboard.
@@ -783,7 +774,6 @@ def save_user_insight(
     tasa_fallos_pct: Annotated[
         float | None, Field(description="Failure rate as a decimal percentage, for example 0.02 for 2%.")
     ] = None,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Persist a generated insight into user_insights through the SQLAlchemy database layer.
@@ -835,7 +825,6 @@ def call_model_endpoint(
             )
         ),
     ] = None,
-    **_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Call the Datathon206 segmentacion Space.
