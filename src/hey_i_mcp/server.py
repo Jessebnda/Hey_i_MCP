@@ -360,7 +360,7 @@ def get_user_chat_messages(
     )
 
 
-@mcp.tool()
+# @mcp.tool()  # DISABLED — sleeping get_user_segment
 def get_user_segment(
     user_id: Annotated[
         str,
@@ -457,7 +457,7 @@ def get_user_transactions(
     }
 
 
-@mcp.tool()
+# @mcp.tool()  # DISABLED — sleeping get_user_context_snapshot
 def get_user_context_snapshot(
     user_id: Annotated[
         str,
