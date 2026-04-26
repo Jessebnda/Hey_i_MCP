@@ -313,7 +313,7 @@ def get_user_chat_messages(
 def get_user_segment(
     user_id: Annotated[
         str,
-        Field(description="UUID of the user whose segment should be retrieved."),
+        Field(alias="User Id", description="UUID of the user whose segment should be retrieved."),
     ],
 ) -> dict[str, Any]:
     """
@@ -395,14 +395,23 @@ def get_user_transactions(
 
 @mcp.tool()
 def get_user_context_snapshot(
-    user_id: Annotated[str, Field(description="UUID of the user to summarize.")],
+    user_id: Annotated[
+        str,
+        Field(alias="User Id", description="UUID of the user to summarize."),
+    ],
     transaction_limit: Annotated[
-        int,
-        Field(description="Maximum number of recent transactions to include in the snapshot."),
+        int | str,
+        Field(
+            alias="Transaction Limit",
+            description="Maximum number of recent transactions to include in the snapshot.",
+        ),
     ] = 50,
     message_limit: Annotated[
-        int,
-        Field(description="Maximum number of recent chat messages to include in the snapshot."),
+        int | str,
+        Field(
+            alias="Message Limit",
+            description="Maximum number of recent chat messages to include in the snapshot.",
+        ),
     ] = 50,
 ) -> dict[str, Any]:
     """
@@ -411,6 +420,9 @@ def get_user_context_snapshot(
     The result combines the latest profile and segment rows with summarized activity data,
     plus latest_activity_at and per-source errors when a query fails.
     """
+    transaction_limit = int(transaction_limit)
+    message_limit = int(message_limit)
+
     profile_result = supabase_rest_client.select_rows(
         table_name="user_profiles",
         schema="public",
