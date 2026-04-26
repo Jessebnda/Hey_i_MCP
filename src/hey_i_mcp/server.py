@@ -10,6 +10,13 @@ from pydantic import Field
 
 from fastmcp import FastMCP
 
+from hey_i_mcp.analytics_dashboards import (
+    build_behavior_dashboard,
+    build_benchmark_dashboard,
+    build_credit_dashboard,
+    build_savings_dashboard,
+    build_spending_dashboard,
+)
 from hey_i_mcp.database import DatabaseClient
 from hey_i_mcp.supabase_api import SupabaseRestClient
 
@@ -510,6 +517,111 @@ def get_user_context_snapshot(
         "latest_activity_at": latest_activity_at,
         "errors": errors,
     }
+
+
+@mcp.tool()
+def get_spending_dashboard(
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose spending dashboard should be built."),
+    ],
+    top_merchants_limit: Annotated[
+        int,
+        Field(description="How many merchants to include in the top merchants chart."),
+    ] = 5,
+) -> dict[str, Any]:
+    """
+    Build the spending and categories dashboard.
+
+    Returns chart-ready JSON with donut, comparison bar, daily line, heatmap, and top merchants charts.
+    """
+    return build_spending_dashboard(
+        supabase_rest_client,
+        user_id=user_id,
+        top_merchants_limit=top_merchants_limit,
+    )
+
+
+@mcp.tool()
+def get_credit_dashboard(
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose credit health dashboard should be built."),
+    ],
+) -> dict[str, Any]:
+    """
+    Build the credit and financial health dashboard.
+
+    Returns the utilization gauge, score history, and an explicit placeholder for debt vs limit.
+    """
+    return build_credit_dashboard(supabase_rest_client, user_id=user_id)
+
+
+@mcp.tool()
+def get_savings_dashboard(
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose savings dashboard should be built."),
+    ],
+    months_back: Annotated[
+        int,
+        Field(description="Number of months to include in the monthly charts."),
+    ] = 6,
+    target_category: Annotated[
+        str | None,
+        Field(description="Optional category to use for the projection chart."),
+    ] = None,
+    reduction_pct: Annotated[
+        float,
+        Field(description="Percent reduction scenario used for the projection chart."),
+    ] = 10.0,
+) -> dict[str, Any]:
+    """
+    Build the savings and investment dashboard.
+
+    Returns investment growth, income vs spend, and a category reduction scenario.
+    """
+    return build_savings_dashboard(
+        supabase_rest_client,
+        user_id=user_id,
+        months_back=months_back,
+        target_category=target_category,
+        reduction_pct=reduction_pct,
+    )
+
+
+@mcp.tool()
+def get_behavior_dashboard(
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose behavior dashboard should be built."),
+    ],
+    weeks_back: Annotated[
+        int,
+        Field(description="How many weeks to include in the weekly frequency chart."),
+    ] = 12,
+) -> dict[str, Any]:
+    """
+    Build the behavior dashboard.
+
+    Returns weekday/weekend spending, weekly transaction frequency, and activity heatmaps.
+    """
+    return build_behavior_dashboard(supabase_rest_client, user_id=user_id, weeks_back=weeks_back)
+
+
+@mcp.tool()
+def get_benchmark_dashboard(
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose segment benchmark should be built."),
+    ],
+) -> dict[str, Any]:
+    """
+    Build the segment benchmark dashboard.
+
+    Returns horizontal category bars and a 6-dimension radar chart.
+    """
+    return build_benchmark_dashboard(supabase_rest_client, user_id=user_id)
 
 
 @mcp.tool()

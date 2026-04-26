@@ -15,6 +15,11 @@ Base FastMCP scaffold for user-scoped tools:
 - `get_user_segment(user_id)` for the latest row in `user_segments`.
 - `get_user_transactions(user_id, ...)` for user-scoped transaction history plus aggregates.
 - `get_user_context_snapshot(user_id, ...)` for a compact cross-table user summary.
+- `get_spending_dashboard(user_id, ...)` for chart-ready gasto/categorías analytics.
+- `get_credit_dashboard(user_id)` for utilization, score history, and explicit unavailable states when the schema lacks debt/limit data.
+- `get_savings_dashboard(user_id, ...)` for investment growth, income vs spend, and category reduction scenarios.
+- `get_behavior_dashboard(user_id, ...)` for weekday/weekend, frequency, and activity heatmaps.
+- `get_benchmark_dashboard(user_id)` for segment comparison bars and the 6-dimension radar chart.
 - `get_user_chat_messages(user_id, ...)` for user chat history.
 - `save_user_insight(user_id, ...)` to persist a generated insight into `user_insights` through the database layer.
 - `call_model_endpoint(model, function, method, payload)` for the Datathon206 FastAPI Space router.
@@ -27,6 +32,31 @@ Base FastMCP scaffold for user-scoped tools:
 - `SUPABASE_DATABASE_URL` or `DATABASE_URL` for the `save_user_insight` insert path
 
 Most tools use Supabase REST. `save_user_insight` uses a Postgres connection string through the database layer.
+
+The dashboard tools return a stable JSON envelope:
+
+```json
+{
+	"ok": true,
+	"dashboard": "spending_dashboard",
+	"user_id": "uuid",
+	"generated_at": "2026-04-26T00:00:00+00:00",
+	"charts": [
+		{
+			"id": "spending_category_donut",
+			"type": "donut",
+			"title": "Gasto por categoría este mes",
+			"available": true,
+			"series": []
+		}
+	],
+	"summary": {},
+	"warnings": [],
+	"errors": []
+}
+```
+
+Charts include `available` and `reason` fields so the frontend can render a placeholder when the current schema does not expose the required metric.
 
 Example local `.env`:
 
