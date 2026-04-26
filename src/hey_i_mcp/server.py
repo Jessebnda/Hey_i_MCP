@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Annotated, Literal
 import time
 
 import httpx
+from pydantic import Field
 
 from fastmcp import FastMCP
 
@@ -38,28 +39,48 @@ def supabase_select_rows(
 
 @mcp.tool()
 def call_model_endpoint(
-    model: str,
-    function: str,
-    method: str | None = None,
-    payload: dict[str, Any] | None = None,
+    model: Annotated[
+        Literal["segmentacion"],
+        Field(description="Model prefix. Only segmentacion is supported by this Space."),
+    ],
+    function: Annotated[
+        Literal["health", "segments", "insight/new", "insight/existing"],
+        Field(
+            description=(
+                "Endpoint suffix without the leading slash. Use health or segments for GET, "
+                "and insight/new or insight/existing for POST."
+            )
+        ),
+    ],
+    method: Annotated[
+        Literal["GET", "POST"] | None,
+        Field(description="Optional HTTP method. Inferred when omitted."),
+    ] = None,
+    payload: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description=(
+                "JSON body for POST endpoints. For insight/new send the segmentacion feature "
+                "payload, including numeric fields, 0/1 flags, and optional conversation_text. "
+                "For insight/existing send {user_id, language}."
+            )
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """
-    Router for model endpoints. Builds route as /{model}/{function}
-    and forwards the request to the deployed Hugging Face Space.
+    Call the Datathon206 segmentacion Space.
 
-    Supported model: segmentacion
-    Supported functions: health (GET), segments (GET), insight/new (POST), insight/existing (POST)
+    This tool routes requests to https://orbit05-datathon206.hf.space/{model}/{function}.
+    Use it to read health metadata, list clusters, score a new user, or retrieve an
+    existing user's segment insight.
+
+    Supported routes:
+    - segmentacion/health -> GET
+    - segmentacion/segments -> GET
+    - segmentacion/insight/new -> POST with the new-user feature payload
+    - segmentacion/insight/existing -> POST with user_id and optional language
     """
     base_url = "https://orbit05-datathon206.hf.space"
-    supported = {
-        "segmentacion": ["health", "segments", "insight/new", "insight/existing"]
-    }
-
-    if model not in supported:
-        return {"error": f"Unsupported model: {model}", "status_code": 400}
-
-    if function not in supported[model]:
-        return {"error": f"Unsupported function for {model}: {function}", "status_code": 400}
 
     # Infer HTTP method when omitted
     if method is None:
@@ -69,57 +90,18 @@ def call_model_endpoint(
     if method not in ("GET", "POST"):
         return {"error": "Invalid method", "status_code": 400}
 
-    # Validation for insight/new payload
-    if model == "segmentacion" and function == "insight/new":
-        required_keys = [
-            "edad",
-            "ingreso_mensual_mxn",
-            "score_buro",
-            "antiguedad_dias",
-            "dias_desde_ultimo_login",
-            "satisfaccion_1_10",
-            "es_hey_pro",
-            "nomina_domiciliada",
-            "recibe_remesas",
-            "usa_hey_shop",
-            "tiene_seguro",
-            "patron_uso_atipico",
-            "n_productos_total",
-            "max_utilizacion_credito",
-            "total_spend_mxn",
-            "fail_rate",
-            "n_msi_txns",
-            "cashback_total_mxn",
-            "intl_ratio",
-            "has_credito",
-            "has_inversion",
-        ]
-        missing = [k for k in required_keys if not (payload and k in payload)]
-        if missing:
-            return {"error": "Missing required payload keys", "missing": missing, "status_code": 400}
-
-    # insight/existing requires a known-user CSV; return 501 if not provided
-    if model == "segmentacion" and function == "insight/existing":
-        if not payload or "known_user_csv" not in payload:
-            return {"error": "known-user CSV required", "status_code": 501}
-
     url = f"{base_url}/{model}/{function}"
 
     start = time.perf_counter()
     try:
+        request_kwargs: dict[str, Any] = {"timeout": 60}
         if method == "GET":
-            resp = httpx.get(url, timeout=30)
+            if payload:
+                request_kwargs["params"] = payload
         else:
-            # For insight/existing prefer multipart file upload when CSV content provided
-            if function == "insight/existing" and payload and "known_user_csv" in payload:
-                known_csv = payload.get("known_user_csv")
-                if isinstance(known_csv, str):
-                    files = {"file": ("known_users.csv", known_csv, "text/csv")}
-                    resp = httpx.post(url, files=files, timeout=60)
-                else:
-                    resp = httpx.post(url, json=payload, timeout=60)
-            else:
-                resp = httpx.post(url, json=payload or {}, headers={"Content-Type": "application/json"}, timeout=60)
+            request_kwargs["json"] = payload or {}
+
+        resp = httpx.request(method, url, **request_kwargs)
 
         latency_ms = int((time.perf_counter() - start) * 1000)
         try:
