@@ -273,12 +273,33 @@ def get_user_profile(
         str,
         Field(description="UUID of the user whose profile should be retrieved."),
     ],
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_profile."),
+    ] = None,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_profile."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_user_profile."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_profile."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_profile."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Fetch the latest profile row for a single user from user_profiles, ordered by updated_at DESC.
 
     Returns the full row with demographic, financial, and product-usage fields.
     """
+    _ = top_merchants_limit, months_back, target_category, reduction_pct, weeks_back
     return supabase_rest_client.select_rows(
         table_name="user_profiles",
         schema="public",
@@ -373,6 +394,10 @@ def get_user_transactions(
         bool | None,
         Field(description="Optional exact boolean filter for international transactions."),
     ] = None,
+    role: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_user_transactions."),
+    ] = None,
     limit: Annotated[int, Field(description="Maximum number of transactions to return, newest first.")] = 25,
 ) -> dict[str, Any]:
     """
@@ -381,6 +406,7 @@ def get_user_transactions(
     Returns raw rows plus a derived summary with amount totals, averages, min/max,
     international ratio, counts by status/type/category/merchant, and recent samples.
     """
+    _ = role
     filters: dict[str, str | int | bool] = {"user_id": user_id}
     if estatus is not None:
         filters["estatus"] = estatus
@@ -549,13 +575,43 @@ def get_spending_dashboard(
         int | str | None,
         Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
     ] = None,
+    limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
+    estatus: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
+    categoria_mcc: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
+    tipo_operacion: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
+    es_internacional: Annotated[
+        bool | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Build the spending and categories dashboard.
 
     Returns chart-ready JSON with donut, comparison bar, daily line, heatmap, and top merchants charts.
     """
-    _ = months_back, target_category, reduction_pct, weeks_back
+    _ = (
+        months_back,
+        target_category,
+        reduction_pct,
+        weeks_back,
+        limit,
+        estatus,
+        categoria_mcc,
+        tipo_operacion,
+        es_internacional,
+    )
     try:
         normalized_top_merchants_limit = int(top_merchants_limit) if top_merchants_limit is not None else 5
     except (TypeError, ValueError):
