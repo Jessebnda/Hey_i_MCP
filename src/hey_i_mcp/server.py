@@ -318,12 +318,33 @@ def get_user_chat_messages(
         Field(description="Optional exact role filter. Use 'user' or 'assistant'; omit for all messages."),
     ] = None,
     limit: Annotated[int, Field(description="Maximum number of messages to return, newest first.")] = 20,
+    top_merchants_limit: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_chat_messages."),
+    ] = None,
+    months_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_chat_messages."),
+    ] = None,
+    target_category: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_user_chat_messages."),
+    ] = None,
+    reduction_pct: Annotated[
+        float | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_chat_messages."),
+    ] = None,
+    weeks_back: Annotated[
+        int | str | None,
+        Field(description="Compatibility-only. Ignored by get_user_chat_messages."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Fetch the most recent chat messages for a given user from chat_messages, ordered by created_at DESC.
 
     Returns the raw Supabase payload, including rows, row_count, ok, and the applied filters.
     """
+    _ = top_merchants_limit, months_back, target_category, reduction_pct, weeks_back
     filters: dict[str, str | int | bool] = {"user_id": user_id}
     if role is not None:
         filters["role"] = role
@@ -595,6 +616,10 @@ def get_spending_dashboard(
         bool | None,
         Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
     ] = None,
+    role: Annotated[
+        str | None,
+        Field(description="Compatibility-only. Ignored by get_spending_dashboard."),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Build the spending and categories dashboard.
@@ -611,6 +636,7 @@ def get_spending_dashboard(
         categoria_mcc,
         tipo_operacion,
         es_internacional,
+        role,
     )
     try:
         normalized_top_merchants_limit = int(top_merchants_limit) if top_merchants_limit is not None else 5
