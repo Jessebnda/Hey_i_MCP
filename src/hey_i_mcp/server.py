@@ -1296,9 +1296,9 @@ def _call_model_endpoint_impl(
         return {"error": "Invalid method", "status_code": 400}
 
     if function == "insight/new":
-    url = f"{base_url}/{function}"
-else:
-    url = f"{base_url}/{model}/{function}"
+        url = f"{base_url}/{function}"
+    else:
+        url = f"{base_url}/{model}/{function}"
 
     start = time.perf_counter()
     try:
