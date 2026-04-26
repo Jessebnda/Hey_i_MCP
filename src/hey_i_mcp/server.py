@@ -315,12 +315,27 @@ def get_user_segment(
         str,
         Field(alias="User Id", description="UUID of the user whose segment should be retrieved."),
     ],
+    transaction_limit: Annotated[
+        int | str | None,
+        Field(
+            alias="Transaction Limit",
+            description="Compatibility-only. Ignored by get_user_segment.",
+        ),
+    ] = None,
+    message_limit: Annotated[
+        int | str | None,
+        Field(
+            alias="Message Limit",
+            description="Compatibility-only. Ignored by get_user_segment.",
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """
     Fetch the latest segment row for a single user from user_segments, ordered by updated_at DESC.
 
     Returns the segment label, cluster id, and z-score features used by the model.
     """
+    _ = transaction_limit, message_limit
     return supabase_rest_client.select_rows(
         table_name="user_segments",
         schema="public",
