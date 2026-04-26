@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Any, Annotated, Literal
+import inspect
 import time
+from typing import Any, Annotated, Literal
 
 import httpx
 from pydantic import Field
 
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import without_injected_parameters
+from fastmcp.tools.function_tool import FunctionTool
 
 from hey_i_mcp.analytics_dashboards import (
     build_behavior_dashboard,
@@ -24,6 +27,47 @@ from hey_i_mcp.supabase_api import SupabaseRestClient
 mcp = FastMCP("Hey i MCP")
 database_client = DatabaseClient()
 supabase_rest_client = SupabaseRestClient()
+
+
+def _strip_unknown_tool_arguments(
+    fn: Any,
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    """Drop legacy extra keys before FastMCP validates tool calls.
+
+    Some external workflows still send a superset payload to multiple tools.
+    FastMCP rejects unexpected keyword arguments, so we keep only the fields
+    that the underlying tool function actually declares.
+    """
+
+    signature = inspect.signature(without_injected_parameters(fn))
+    allowed_names = {
+        name
+        for name, parameter in signature.parameters.items()
+        if parameter.kind
+        not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    }
+
+    if not arguments or all(name in allowed_names for name in arguments):
+        return arguments
+
+    return {name: value for name, value in arguments.items() if name in allowed_names}
+
+
+_original_function_tool_run = FunctionTool.run
+
+
+async def _run_tool_with_legacy_argument_filter(
+    self: FunctionTool,
+    arguments: dict[str, Any],
+) -> Any:
+    return await _original_function_tool_run(
+        self,
+        _strip_unknown_tool_arguments(self.fn, arguments),
+    )
+
+
+FunctionTool.run = _run_tool_with_legacy_argument_filter  # type: ignore[assignment]
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -437,6 +481,9 @@ def get_user_context_snapshot(
 
     The result combines the latest profile and segment rows with summarized activity data,
     plus latest_activity_at and per-source errors when a query fails.
+
+    This is a read-only composition step. If you need to persist a generated insight
+    based on this snapshot, use save_user_insight separately.
     """
     transaction_limit = int(transaction_limit)
     message_limit = int(message_limit)
@@ -493,6 +540,7 @@ def get_user_context_snapshot(
     messages_summary = _build_message_summary(message_rows)
 
     latest_activity_candidates: list[datetime] = []
+    # Anchor the snapshot with the newest visible activity across messages and transactions.
     for timestamp_value in (
         transactions_summary.get("last_transaction_at"),
         messages_summary.get("last_message_at"),
