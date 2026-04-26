@@ -56,6 +56,44 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
+def _safe_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "t", "yes", "y", "si", "sí"}
+    return False
+
+
+def _ratio(numerator: float, denominator: float) -> float:
+    if denominator <= 0:
+        return 0.0
+    return numerator / denominator
+
+
+def _utilization_proxy_from_segment(segment_row: dict[str, Any] | None) -> float:
+    if not segment_row:
+        return 0.0
+
+    z_value = _safe_float(segment_row.get("max_utilizacion_z"))
+    if z_value is None:
+        return 0.0
+
+    # Mismo proxy usado en dashboards: 50 + (z * 20), acotado a [0, 100].
+    utilization_pct = max(0.0, min(100.0, 50.0 + (z_value * 20.0)))
+    return utilization_pct / 100.0
+
+
 def _sort_rows_by_datetime(rows: list[dict[str, Any]], *fields: str) -> list[dict[str, Any]]:
     fallback = datetime.min.replace(tzinfo=timezone.utc)
 
@@ -839,6 +877,247 @@ def get_benchmark_dashboard(
     """
     _ = top_merchants_limit, months_back, target_category, reduction_pct, weeks_back
     return build_benchmark_dashboard(supabase_rest_client, user_id=user_id)
+
+
+@mcp.tool()
+def classify_user_segment(
+    user_id: Annotated[
+        str,
+        Field(
+            description=(
+                "UUID del usuario a clasificar. Úsalo cuando sea primer login, pasen 7+ días "
+                "desde la última clasificación, haya cambio relevante de perfil o patrón atípico."
+            )
+        ),
+    ],
+    force_reclassify: Annotated[
+        bool,
+        Field(
+            description=(
+                "Si es false (default), solo clasifica cuando no existe registro en user_segments. "
+                "Si es true, fuerza reclasificación explícita y actualiza el segmento existente."
+            )
+        ),
+    ] = False,
+) -> dict[str, Any]:
+    """
+    Clasifica a un usuario en un segmento financiero y guarda/upserta el resultado en user_segments.
+
+    El vector de features se construye internamente desde user_profiles, user_transactions,
+    chat_messages y un proxy de utilización desde user_segments si existe histórico previo.
+    Por defecto solo inserta la primera vez; para recalcular requiere force_reclassify=True.
+    """
+    profile_result = supabase_rest_client.select_rows(
+        table_name="user_profiles",
+        schema="public",
+        filters={"user_id": user_id},
+        limit=1,
+        order_by="updated_at",
+        ascending=False,
+    )
+    if not profile_result.get("ok", False):
+        return {"ok": False, "user_id": user_id, "error": f"Profile query failed: {profile_result.get('error')}"}
+
+    profile_rows = profile_result.get("rows") or []
+    if not profile_rows:
+        return {"ok": False, "user_id": user_id, "error": "Usuario no encontrado en user_profiles."}
+    profile = profile_rows[0]
+
+    tx_result = supabase_rest_client.select_rows(
+        table_name="user_transactions",
+        schema="public",
+        filters={"user_id": user_id},
+        limit=1000,
+        order_by="fecha_hora",
+        ascending=False,
+    )
+    if not tx_result.get("ok", False):
+        return {
+            "ok": False,
+            "user_id": user_id,
+            "error": f"Transactions query failed: {tx_result.get('error')}",
+        }
+    txns = tx_result.get("rows") or []
+
+    chat_result = supabase_rest_client.select_rows(
+        table_name="chat_messages",
+        schema="public",
+        filters={"user_id": user_id},
+        limit=1000,
+        order_by="created_at",
+        ascending=False,
+    )
+    if not chat_result.get("ok", False):
+        return {"ok": False, "user_id": user_id, "error": f"Chat query failed: {chat_result.get('error')}"}
+    chat_rows = chat_result.get("rows") or []
+
+    segment_result = supabase_rest_client.select_rows(
+        table_name="user_segments",
+        schema="public",
+        filters={"user_id": user_id},
+        limit=1,
+        order_by="updated_at",
+        ascending=False,
+    )
+    latest_segment = (segment_result.get("rows") or [None])[0] if segment_result.get("ok", False) else None
+    if latest_segment is not None and not force_reclassify:
+        return {
+            "ok": True,
+            "user_id": user_id,
+            "skipped": True,
+            "reason": (
+                "User already has a segment in user_segments. "
+                "Set force_reclassify=true to recompute and update it."
+            ),
+            "existing_segment": {
+                "segmento": latest_segment.get("segmento"),
+                "cluster_id": latest_segment.get("cluster_id"),
+                "updated_at": latest_segment.get("updated_at"),
+            },
+        }
+
+    completadas: list[dict[str, Any]] = []
+    fallidas_count = 0
+    num_transacciones = len(txns)
+    tiene_inversion = False
+
+    for txn in txns:
+        status = str(txn.get("estatus") or "").strip().lower()
+        op_type = str(txn.get("tipo_operacion") or "").strip().lower()
+        if op_type == "abono_inversion":
+            tiene_inversion = True
+        if status == "completada":
+            completadas.append(txn)
+        if status in {"no_procesada", "rechazada", "fallida"}:
+            fallidas_count += 1
+
+    total_spend = 0.0
+    category_spend: dict[str, float] = {
+        "servicios_digitales": 0.0,
+        "delivery": 0.0,
+        "restaurante": 0.0,
+        "viajes": 0.0,
+        "gobierno": 0.0,
+    }
+    for txn in completadas:
+        amount = _safe_float(txn.get("monto")) or 0.0
+        total_spend += amount
+        category = str(txn.get("categoria_mcc") or "").strip().lower()
+        if category in category_spend:
+            category_spend[category] += amount
+
+    ticket_promedio = _ratio(total_spend, float(len(completadas)))
+    fail_rate = _ratio(float(fallidas_count), float(num_transacciones))
+
+    conversation_ids = {
+        str(row.get("conv_id"))
+        for row in chat_rows
+        if row.get("conv_id") not in (None, "", "null")
+    }
+    n_conversaciones = len(conversation_ids) if conversation_ids else len(chat_rows)
+
+    voice_messages = 0
+    for row in chat_rows:
+        channel = str(row.get("canal") or row.get("channel") or row.get("input_type") or "").lower()
+        content_type = str(row.get("content_type") or row.get("message_type") or "").lower()
+        if "voz" in channel or "voice" in channel or "audio" in channel:
+            voice_messages += 1
+        elif "voz" in content_type or "voice" in content_type or "audio" in content_type:
+            voice_messages += 1
+    usa_canal_voz = _ratio(float(voice_messages), float(len(chat_rows)))
+
+    tiene_cuenta_negocios = _safe_bool(
+        profile.get("tiene_cuenta_negocios")
+        if profile.get("tiene_cuenta_negocios") is not None
+        else profile.get("has_cuenta_negocios")
+    )
+
+    features = {
+        "score_buro": _safe_int(profile.get("score_buro")) or 0,
+        "ingreso_mensual_mxn": _safe_float(profile.get("ingreso_mensual_mxn")) or 0.0,
+        "dias_desde_ultimo_login": _safe_int(profile.get("dias_desde_ultimo_login")) or 0,
+        "num_productos_activos": _safe_int(profile.get("num_productos_activos")) or 0,
+        "es_hey_pro": int(_safe_bool(profile.get("es_hey_pro"))),
+        "nomina_domiciliada": int(_safe_bool(profile.get("nomina_domiciliada"))),
+        "satisfaccion_1_10": _safe_int(profile.get("satisfaccion_1_10")) or 0,
+        "patron_uso_atipico": int(_safe_bool(profile.get("patron_uso_atipico"))),
+        "antiguedad_dias": _safe_int(profile.get("antiguedad_dias")) or 0,
+        "gasto_total": round(total_spend, 2),
+        "ticket_promedio": round(ticket_promedio, 6),
+        "fail_rate": round(fail_rate, 6),
+        "max_utilizacion_credito": round(_utilization_proxy_from_segment(latest_segment), 6),
+        "num_transacciones": num_transacciones,
+        "tiene_inversion": int(tiene_inversion),
+        "tiene_cuenta_negocios": int(tiene_cuenta_negocios),
+        "ratio_servicios_digitales": round(_ratio(category_spend["servicios_digitales"], total_spend), 6),
+        "ratio_delivery": round(_ratio(category_spend["delivery"], total_spend), 6),
+        "ratio_restaurante": round(_ratio(category_spend["restaurante"], total_spend), 6),
+        "ratio_viajes": round(_ratio(category_spend["viajes"], total_spend), 6),
+        "ratio_gobierno": round(_ratio(category_spend["gobierno"], total_spend), 6),
+        "n_conversaciones": n_conversaciones,
+        "usa_canal_voz": round(usa_canal_voz, 6),
+    }
+
+    model_result = call_model_endpoint(
+        model="segmentacion",
+        function="insight/new",
+        method="POST",
+        payload=features,
+    )
+    status_code = model_result.get("status_code")
+    response_payload = model_result.get("response")
+    if status_code != 200 or not isinstance(response_payload, dict):
+        return {
+            "ok": False,
+            "user_id": user_id,
+            "error": "Model endpoint failed",
+            "status_code": status_code,
+            "model_response": response_payload,
+        }
+
+    segmento = response_payload.get("segmento")
+    cluster_id = _safe_int(response_payload.get("cluster_id"))
+    z_scores = response_payload.get("z_scores")
+    if not isinstance(z_scores, dict):
+        z_scores = {}
+
+    upsert_result = database_client.upsert_user_segment(
+        {
+            "user_id": user_id,
+            "segmento": segmento,
+            "cluster_id": cluster_id,
+            "score_buro_z": _safe_float(z_scores.get("score_buro_z")),
+            "fail_rate_z": _safe_float(z_scores.get("fail_rate_z")),
+            "max_utilizacion_z": _safe_float(z_scores.get("max_utilizacion_z")),
+            "ingreso_z": _safe_float(z_scores.get("ingreso_z")),
+            "ratio_servicios_digitales_z": _safe_float(z_scores.get("ratio_servicios_digitales_z")),
+            "has_inversion_z": _safe_float(z_scores.get("has_inversion_z")),
+            "nomina_domiciliada_z": _safe_float(z_scores.get("nomina_domiciliada_z")),
+            "has_cuenta_negocios_z": _safe_float(z_scores.get("has_cuenta_negocios_z")),
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+    if not upsert_result.get("ok", False):
+        return {
+            "ok": False,
+            "user_id": user_id,
+            "error": "Failed to upsert user_segments",
+            "details": upsert_result.get("error"),
+            "segmento": segmento,
+            "cluster_id": cluster_id,
+            "z_scores": z_scores,
+        }
+
+    return {
+        "ok": True,
+        "user_id": user_id,
+        "segmento": segmento,
+        "cluster_id": cluster_id,
+        "z_scores": z_scores,
+        "features_usados": len(features),
+        "features": features,
+        "upsert": upsert_result,
+    }
 
 
 @mcp.tool()

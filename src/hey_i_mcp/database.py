@@ -84,3 +84,47 @@ class DatabaseClient:
                 }
         except (RuntimeError, SQLAlchemyError) as exc:
             return {"ok": False, "error": str(exc)}
+
+    def upsert_user_segment(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Upsert de user_segments por user_id usando consulta parametrizada.
+        Solo incluye columnas con valor no-None.
+        """
+        try:
+            engine = self._get_engine()
+            columns = {k: v for k, v in data.items() if v is not None}
+
+            if "user_id" not in columns:
+                return {"ok": False, "error": "user_id is required"}
+
+            if len(columns) == 1:
+                return {"ok": False, "error": "No updatable fields provided"}
+
+            col_names = ", ".join(columns.keys())
+            col_params = ", ".join(f":{k}" for k in columns.keys())
+            update_columns = [col for col in columns.keys() if col != "user_id"]
+            update_clause = ", ".join(f"{col} = EXCLUDED.{col}" for col in update_columns)
+            sql = (
+                f"INSERT INTO user_segments ({col_names}) "
+                f"VALUES ({col_params}) "
+                "ON CONFLICT (user_id) DO UPDATE SET "
+                f"{update_clause} "
+                "RETURNING user_id, segmento, cluster_id, updated_at"
+            )
+
+            with engine.begin() as connection:
+                result = connection.execute(text(sql), columns)
+                row = result.mappings().first()
+
+                if row is None:
+                    return {"ok": False, "error": "Upsert did not return a row"}
+
+                return {
+                    "ok": True,
+                    "user_id": str(row["user_id"]),
+                    "segmento": row.get("segmento"),
+                    "cluster_id": row.get("cluster_id"),
+                    "updated_at": str(row["updated_at"]) if row.get("updated_at") is not None else None,
+                }
+        except (RuntimeError, SQLAlchemyError) as exc:
+            return {"ok": False, "error": str(exc)}
