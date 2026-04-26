@@ -49,3 +49,38 @@ class DatabaseClient:
                 }
         except (RuntimeError, SQLAlchemyError) as exc:
             return {"ok": False, "query": query, "error": str(exc), "rows": []}
+
+    def insert_insight(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inserta un registro en user_insights usando consulta parametrizada.
+        Solo incluye las columnas con valor no-None.
+        """
+        try:
+            engine = self._get_engine()
+            columns = {k: v for k, v in data.items() if v is not None}
+
+            if not columns:
+                return {"ok": False, "error": "No data provided", "rows": []}
+
+            col_names = ", ".join(columns.keys())
+            col_params = ", ".join(f":{k}" for k in columns.keys())
+            sql = (
+                f"INSERT INTO user_insights ({col_names}) "
+                f"VALUES ({col_params}) "
+                "RETURNING id, created_at"
+            )
+
+            with engine.begin() as connection:
+                result = connection.execute(text(sql), columns)
+                row = result.mappings().first()
+
+                if row is None:
+                    return {"ok": False, "error": "Insert did not return a row", "rows": []}
+
+                return {
+                    "ok": True,
+                    "id": str(row["id"]),
+                    "created_at": str(row["created_at"]),
+                }
+        except (RuntimeError, SQLAlchemyError) as exc:
+            return {"ok": False, "error": str(exc)}

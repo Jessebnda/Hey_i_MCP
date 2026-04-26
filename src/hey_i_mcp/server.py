@@ -10,10 +10,12 @@ from pydantic import Field
 
 from fastmcp import FastMCP
 
+from hey_i_mcp.database import DatabaseClient
 from hey_i_mcp.supabase_api import SupabaseRestClient
 
 
 mcp = FastMCP("Hey i MCP")
+database_client = DatabaseClient()
 supabase_rest_client = SupabaseRestClient()
 
 
@@ -221,14 +223,18 @@ def _build_message_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 # Raw SQL access is intentionally not exposed right now.
-# The MCP stays read-only and user-scoped through the select-based tools below.
+# The MCP stays user-scoped through the select-based tools and the single insight write path below.
 
 
 @mcp.tool()
 def supabase_select_rows(
     table_name: Annotated[
         Literal["user_profiles", "chat_messages"],
-        Field(description="Table to query. Allowed: user_profiles, chat_messages."),
+        Field(
+            description=(
+                "Table to query. Allowed: user_profiles or chat_messages for ad hoc exact-match selects."
+            )
+        ),
     ] = "user_profiles",
     schema: str = "public",
     filters: Annotated[
@@ -244,7 +250,7 @@ def supabase_select_rows(
             )
         ),
     ] = None,
-    limit: int = 5,
+    limit: Annotated[int, Field(description="Maximum number of rows to return.")] = 5,
 ) -> dict[str, Any]:
     return supabase_rest_client.select_rows(
         table_name=table_name,
@@ -256,16 +262,15 @@ def supabase_select_rows(
 
 @mcp.tool()
 def get_user_profile(
-    user_id: Annotated[str, Field(description="UUID of the user to retrieve from user_profiles.")],
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose profile should be retrieved."),
+    ],
 ) -> dict[str, Any]:
     """
-    Fetch the full profile row for a single user from user_profiles.
+    Fetch the latest profile row for a single user from user_profiles, ordered by updated_at DESC.
 
-    Returns demographic and behavioural fields: edad, sexo, estado, ciudad,
-    nivel_educativo, ocupacion, ingreso_mensual_mxn, antiguedad_dias, es_hey_pro,
-    nomina_domiciliada, canal_apertura, score_buro, dias_desde_ultimo_login,
-    preferencia_canal, satisfaccion_1_10, recibe_remesas, usa_hey_shop,
-    idioma_preferido, tiene_seguro, num_productos_activos, patron_uso_atipico.
+    Returns the full row with demographic, financial, and product-usage fields.
     """
     return supabase_rest_client.select_rows(
         table_name="user_profiles",
@@ -279,19 +284,17 @@ def get_user_profile(
 
 @mcp.tool()
 def get_user_chat_messages(
-    user_id: Annotated[str, Field(description="UUID of the user whose messages to fetch.")],
+    user_id: Annotated[str, Field(description="UUID of the user whose messages should be fetched.")],
     role: Annotated[
         Literal["user", "assistant"] | None,
-        Field(description="Optional filter by role: 'user' or 'assistant'. Omit for all messages."),
+        Field(description="Optional exact role filter. Use 'user' or 'assistant'; omit for all messages."),
     ] = None,
-    limit: int = 20,
+    limit: Annotated[int, Field(description="Maximum number of messages to return, newest first.")] = 20,
 ) -> dict[str, Any]:
     """
-    Fetch chat messages for a given user from the chat_messages table.
+    Fetch the most recent chat messages for a given user from chat_messages, ordered by created_at DESC.
 
-    Messages are ordered by created_at DESC on the database side (via the index
-    idx_chat_messages_user_id_created). Results include: id, user_id, role,
-    content, created_at.
+    Returns the raw Supabase payload, including rows, row_count, ok, and the applied filters.
     """
     filters: dict[str, str | int | bool] = {"user_id": user_id}
     if role is not None:
@@ -308,14 +311,15 @@ def get_user_chat_messages(
 
 @mcp.tool()
 def get_user_segment(
-    user_id: Annotated[str, Field(description="UUID of the user to retrieve from user_segments.")],
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose segment should be retrieved."),
+    ],
 ) -> dict[str, Any]:
     """
-    Fetch the latest segment row for a single user from user_segments.
+    Fetch the latest segment row for a single user from user_segments, ordered by updated_at DESC.
 
-    Returns cluster and scoring features: segmento, cluster_id, score_buro_z,
-    fail_rate_z, max_utilizacion_z, ingreso_z, ratio_servicios_digitales_z,
-    has_inversion_z, nomina_domiciliada_z, has_cuenta_negocios_z, updated_at.
+    Returns the segment label, cluster id, and z-score features used by the model.
     """
     return supabase_rest_client.select_rows(
         table_name="user_segments",
@@ -329,30 +333,33 @@ def get_user_segment(
 
 @mcp.tool()
 def get_user_transactions(
-    user_id: Annotated[str, Field(description="UUID of the user whose transactions to fetch.")],
+    user_id: Annotated[
+        str,
+        Field(description="UUID of the user whose transactions should be fetched."),
+    ],
     estatus: Annotated[
         str | None,
-        Field(description="Optional exact filter for transaction estatus."),
+        Field(description="Optional exact status filter, such as 'completada' or 'rechazada'."),
     ] = None,
     tipo_operacion: Annotated[
         str | None,
-        Field(description="Optional exact filter for tipo_operacion."),
+        Field(description="Optional exact transaction type filter, such as 'compra' or 'abono_inversion'."),
     ] = None,
     categoria_mcc: Annotated[
         str | None,
-        Field(description="Optional exact filter for categoria_mcc."),
+        Field(description="Optional exact MCC/category filter."),
     ] = None,
     es_internacional: Annotated[
         bool | None,
-        Field(description="Optional exact filter for international transactions."),
+        Field(description="Optional exact boolean filter for international transactions."),
     ] = None,
-    limit: int = 25,
+    limit: Annotated[int, Field(description="Maximum number of transactions to return, newest first.")] = 25,
 ) -> dict[str, Any]:
     """
-    Fetch the latest transactions for a user from user_transactions.
+    Fetch the latest transactions for a user from user_transactions, ordered by fecha_hora DESC.
 
-    Returns raw rows plus a derived spending summary so downstream tools can use
-    either the samples or the aggregates without raw SQL.
+    Returns raw rows plus a derived summary with amount totals, averages, min/max,
+    international ratio, counts by status/type/category/merchant, and recent samples.
     """
     filters: dict[str, str | int | bool] = {"user_id": user_id}
     if estatus is not None:
@@ -391,18 +398,18 @@ def get_user_context_snapshot(
     user_id: Annotated[str, Field(description="UUID of the user to summarize.")],
     transaction_limit: Annotated[
         int,
-        Field(description="How many latest transactions to include in the summary sample."),
+        Field(description="Maximum number of recent transactions to include in the snapshot."),
     ] = 50,
     message_limit: Annotated[
         int,
-        Field(description="How many latest chat messages to include in the summary sample."),
+        Field(description="Maximum number of recent chat messages to include in the snapshot."),
     ] = 50,
 ) -> dict[str, Any]:
     """
-    Build a compact user snapshot from profile, segment, transactions, and chat.
+    Build a compact multi-source snapshot from profile, segment, transactions, and chat.
 
-    This is the main cross-table read tool for models that need a broader view
-    of the user's behavior without exposing arbitrary SQL.
+    The result combines the latest profile and segment rows with summarized activity data,
+    plus latest_activity_at and per-source errors when a query fails.
     """
     profile_result = supabase_rest_client.select_rows(
         table_name="user_profiles",
@@ -484,69 +491,60 @@ def get_user_context_snapshot(
 
 @mcp.tool()
 def save_user_insight(
-    user_id: Annotated[str, Field(description="UUID del usuario autenticado.")],
+    user_id: Annotated[str, Field(description="UUID del usuario al que se le guardará el insight.")],
     trigger_type: Annotated[
         str,
         Field(
             description=(
-                "Tipo de trigger que originó el insight. Ej: cargo_fallido_reciente, "
+                "Short trigger label that originated the insight. Use values like cargo_fallido_reciente, "
                 "credito_al_limite, sin_login_reciente, nomina_sin_inversion, "
                 "suscripcion_sin_uso, gasto_inusual, baja_satisfaccion."
             )
         ),
     ],
-    insight_text: Annotated[str, Field(description="Texto completo del insight personalizado.")],
-    segment_name: Annotated[str | None, Field(description="Nombre del segmento del usuario.")] = None,
+    insight_text: Annotated[str, Field(description="Full insight text to persist.")],
+    segment_name: Annotated[str | None, Field(description="Optional segment label associated with the user.")] = None,
     insight_type: Annotated[
         str | None,
         Field(
             description=(
-                "Tipo de insight. Uno de: upsell_investment, upsell_digital, upsell_business, "
+                "Optional insight category. Use one of: upsell_investment, upsell_digital, upsell_business, "
                 "retention_reactivation, retention_churn_risk, loyalty_payroll, financial_stress_relief."
             )
         ),
     ] = None,
-    cluster: Annotated[int | None, Field(description="Número de cluster del modelo ML.")] = None,
-    score_buro: Annotated[int | None, Field(description="Score de buró del usuario.")] = None,
+    cluster: Annotated[int | None, Field(description="Optional numeric cluster from the segmentation model.")] = None,
+    score_buro: Annotated[int | None, Field(description="Optional bureau score used in the insight.")] = None,
     utilizacion_credito_pct: Annotated[
-        float | None, Field(description="Porcentaje de utilización de crédito.")
+        float | None, Field(description="Credit utilization as a decimal percentage, for example 0.38 for 38%.")
     ] = None,
     gasto_total_anual_mxn: Annotated[
-        float | None, Field(description="Gasto total anual en MXN.")
+        float | None, Field(description="Total annual spend in MXN.")
     ] = None,
     tasa_fallos_pct: Annotated[
-        float | None, Field(description="Tasa de pagos fallidos en porcentaje.")
+        float | None, Field(description="Failure rate as a decimal percentage, for example 0.02 for 2%.")
     ] = None,
 ) -> dict[str, Any]:
     """
-    Persiste un insight generado por el modelo en la tabla user_insights.
+    Persist a generated insight into user_insights through the SQLAlchemy database layer.
 
-    Llamar SIEMPRE después de obtener el insight de call_model_endpoint.
-    Retorna el id y created_at del registro creado.
+    Call this after generating the insight with call_model_endpoint. Returns ok, id,
+    created_at, and error when the insert fails.
     """
-    row = {
-        "user_id": user_id,
-        "trigger_type": trigger_type,
-        "insight_text": insight_text,
-        "segment_name": segment_name,
-        "insight_type": insight_type,
-        "cluster": cluster,
-        "score_buro": score_buro,
-        "utilizacion_credito_pct": utilizacion_credito_pct,
-        "gasto_total_anual_mxn": gasto_total_anual_mxn,
-        "tasa_fallos_pct": tasa_fallos_pct,
-    }
-    row = {key: value for key, value in row.items() if value is not None}
-    result = supabase_rest_client.insert_row("user_insights", row, schema="public")
-    inserted_row = result.get("rows", [{}])[0] if result.get("rows") else {}
-
-    return {
-        "ok": result.get("ok", False),
-        "id": inserted_row.get("id"),
-        "created_at": inserted_row.get("created_at"),
-        "row": inserted_row,
-        "error": result.get("error"),
-    }
+    return database_client.insert_insight(
+        {
+            "user_id": user_id,
+            "trigger_type": trigger_type,
+            "insight_text": insight_text,
+            "segment_name": segment_name,
+            "insight_type": insight_type,
+            "cluster": cluster,
+            "score_buro": score_buro,
+            "utilizacion_credito_pct": utilizacion_credito_pct,
+            "gasto_total_anual_mxn": gasto_total_anual_mxn,
+            "tasa_fallos_pct": tasa_fallos_pct,
+        }
+    )
 
 
 @mcp.tool()

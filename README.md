@@ -16,7 +16,7 @@ Base FastMCP scaffold for user-scoped tools:
 - `get_user_transactions(user_id, ...)` for user-scoped transaction history plus aggregates.
 - `get_user_context_snapshot(user_id, ...)` for a compact cross-table user summary.
 - `get_user_chat_messages(user_id, ...)` for user chat history.
-- `save_user_insight(user_id, ...)` to persist a generated insight into `user_insights`.
+- `save_user_insight(user_id, ...)` to persist a generated insight into `user_insights` through the database layer.
 - `call_model_endpoint(model, function, method, payload)` for the Datathon206 FastAPI Space router.
 
 ## Environment variables
@@ -24,12 +24,14 @@ Base FastMCP scaffold for user-scoped tools:
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` if you want a backend-only key with full access
+- `SUPABASE_DATABASE_URL` or `DATABASE_URL` for the `save_user_insight` insert path
 
-The MCP layer now uses Supabase REST only. You do not need a Postgres connection string for the exposed tools.
+Most tools use Supabase REST. `save_user_insight` uses a Postgres connection string through the database layer.
 
 Example local `.env`:
 
 ```env
+SUPABASE_DATABASE_URL=postgresql+psycopg://postgres:YOUR_SUPABASE_DB_PASSWORD@db.ghdriiamxjczjfzfrmlw.supabase.co:5432/postgres?sslmode=require
 NEXT_PUBLIC_SUPABASE_URL=https://ghdriiamxjczjfzfrmlw.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
