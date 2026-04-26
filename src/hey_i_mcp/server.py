@@ -1296,7 +1296,7 @@ def _call_model_endpoint_impl(
         return {"error": "Invalid method", "status_code": 400}
 
     if function == "insight/new":
-        url = f"{base_url}/{function}"
+        url = f"{base_url}/insight/new-tool"
     else:
         url = f"{base_url}/{model}/{function}"
 
