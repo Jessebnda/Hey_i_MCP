@@ -54,9 +54,9 @@ class SupabaseRestClient:
 
     def select_rows(
         self,
-        table_name: str = "users",
+        table_name: str = "user_profiles",
         schema: str = "public",
-        status: str | None = "active",
+        filters: dict[str, str | int | bool] | None = None,
         limit: int = 5,
     ) -> dict[str, Any]:
         try:
@@ -75,8 +75,9 @@ class SupabaseRestClient:
             api_key = self._get_api_key()
 
             query_params: dict[str, str] = {"select": "*", "limit": str(limit)}
-            if status is not None:
-                query_params["status"] = f"eq.{status}"
+            if filters:
+                for column, value in filters.items():
+                    query_params[column] = f"eq.{value}"
 
             full_url = (
                 f"{base_url}/rest/v1/{quote(normalized_table_name, safe='._')}"
@@ -109,7 +110,7 @@ class SupabaseRestClient:
                 "ok": True,
                 "table_name": normalized_table_name,
                 "schema": normalized_schema,
-                "status": status,
+                "filters": filters,
                 "limit": limit,
                 "key_source": self.key_source,
                 "row_count": len(rows),
@@ -121,7 +122,7 @@ class SupabaseRestClient:
                 "ok": False,
                 "table_name": table_name,
                 "schema": schema,
-                "status": status,
+                "filters": filters,
                 "limit": limit,
                 "key_source": self.key_source,
                 "error": f"HTTP {exc.code}: {error_body or exc.reason}",
@@ -132,7 +133,7 @@ class SupabaseRestClient:
                 "ok": False,
                 "table_name": table_name,
                 "schema": schema,
-                "status": status,
+                "filters": filters,
                 "limit": limit,
                 "key_source": self.key_source,
                 "error": str(exc),

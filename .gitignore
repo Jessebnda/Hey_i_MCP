@@ -49,3 +49,6 @@ pip-wheel-metadata/
 .DS_Store
 Thumbs.db
 *.log
+
+#schema
+schema.md

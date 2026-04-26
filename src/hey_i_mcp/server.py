@@ -24,15 +24,78 @@ def run_query(query: str) -> dict[str, Any]:
 
 @mcp.tool()
 def supabase_select_rows(
-    table_name: str = "users",
+    table_name: Annotated[
+        Literal["user_profiles", "chat_messages"],
+        Field(description="Table to query. Allowed: user_profiles, chat_messages."),
+    ] = "user_profiles",
     schema: str = "public",
-    status: str | None = "active",
+    filters: Annotated[
+        dict[str, str | int | bool] | None,
+        Field(
+            description=(
+                "Optional equality filters as a dict. Keys must be valid column names for the "
+                "chosen table. For user_profiles: user_id, sexo, estado, ciudad, "
+                "nivel_educativo, ocupacion, es_hey_pro, nomina_domiciliada, canal_apertura, "
+                "preferencia_canal, idioma_preferido, recibe_remesas, usa_hey_shop, "
+                "tiene_seguro, patron_uso_atipico. "
+                "For chat_messages: user_id, role."
+            )
+        ),
+    ] = None,
     limit: int = 5,
 ) -> dict[str, Any]:
     return supabase_rest_client.select_rows(
         table_name=table_name,
         schema=schema,
-        status=status,
+        filters=filters,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def get_user_profile(
+    user_id: Annotated[str, Field(description="UUID of the user to retrieve from user_profiles.")],
+) -> dict[str, Any]:
+    """
+    Fetch the full profile row for a single user from user_profiles.
+
+    Returns demographic and behavioural fields: edad, sexo, estado, ciudad,
+    nivel_educativo, ocupacion, ingreso_mensual_mxn, antiguedad_dias, es_hey_pro,
+    nomina_domiciliada, canal_apertura, score_buro, dias_desde_ultimo_login,
+    preferencia_canal, satisfaccion_1_10, recibe_remesas, usa_hey_shop,
+    idioma_preferido, tiene_seguro, num_productos_activos, patron_uso_atipico.
+    """
+    return supabase_rest_client.select_rows(
+        table_name="user_profiles",
+        schema="public",
+        filters={"user_id": user_id},
+        limit=1,
+    )
+
+
+@mcp.tool()
+def get_user_chat_messages(
+    user_id: Annotated[str, Field(description="UUID of the user whose messages to fetch.")],
+    role: Annotated[
+        Literal["user", "assistant"] | None,
+        Field(description="Optional filter by role: 'user' or 'assistant'. Omit for all messages."),
+    ] = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """
+    Fetch chat messages for a given user from the chat_messages table.
+
+    Messages are ordered by created_at DESC on the database side (via the index
+    idx_chat_messages_user_id_created). Results include: id, user_id, role,
+    content, created_at.
+    """
+    filters: dict[str, str | int | bool] = {"user_id": user_id}
+    if role is not None:
+        filters["role"] = role
+    return supabase_rest_client.select_rows(
+        table_name="chat_messages",
+        schema="public",
+        filters=filters,
         limit=limit,
     )
 
